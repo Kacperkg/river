@@ -643,6 +643,7 @@ function EpisodeRow({ showId, seasonId, episode, isAdmin, onEdit, onDelete, watc
           )}
         </div>
         <EpisodeActionsMenu
+          startFromPath={`${watchPath}?startFrom=0`}
           onWatchParty={() => startEpisodeParty(showId, seasonId, episode.id, navigate)}
           watched={watched}
           onToggleWatched={() => onToggleWatched(!watched)}

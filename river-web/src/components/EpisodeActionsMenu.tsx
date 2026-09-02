@@ -1,10 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Link } from 'react-router-dom'
-import { RiMoreLine, RiGroupLine, RiCheckLine, RiCloseCircleLine, RiDownloadLine, RiHdLine, RiEditLine, RiRestartLine, RiDeleteBin6Line } from 'react-icons/ri'
+import { RiMoreLine, RiGroupLine, RiCheckLine, RiCloseCircleLine, RiDownloadLine, RiHdLine, RiEditLine, RiRestartLine, RiRewindStartLine, RiDeleteBin6Line } from 'react-icons/ri'
 import styles from './EpisodeActionsMenu.module.css'
 
 interface Props {
+  // startFromPath is the router target that forces playback from the
+  // beginning (…/watch?startFrom=0), bypassing saved-progress resume.
+  startFromPath: string
   onWatchParty: () => void
   // watched reflects the current user's completion state for this episode;
   // it flips the toggle item's label/icon.
@@ -32,7 +35,7 @@ type Coords = { top?: number; bottom?: number; right: number }
 // clips overflow for its expand/collapse animation, so an in-flow dropdown
 // would be cut off on the last rows. Fixed coords are anchored to the trigger
 // and flipped above it when there isn't room below.
-export function EpisodeActionsMenu({ onWatchParty, watched, onToggleWatched, downloadUrl, originalPath, isAdmin, onEdit, onReTranscode, onDelete }: Props) {
+export function EpisodeActionsMenu({ startFromPath, onWatchParty, watched, onToggleWatched, downloadUrl, originalPath, isAdmin, onEdit, onReTranscode, onDelete }: Props) {
   const [open, setOpen] = useState(false)
   const [coords, setCoords] = useState<Coords | null>(null)
   const triggerRef = useRef<HTMLButtonElement>(null)
@@ -45,7 +48,7 @@ export function EpisodeActionsMenu({ onWatchParty, watched, onToggleWatched, dow
     const right = window.innerWidth - r.right
     // Rough height estimate (item ≈ 40px + a little chrome) is enough to decide
     // whether to flip upward; the exact height doesn't matter for the choice.
-    const itemCount = 2 + (downloadUrl ? 1 : 0) + (originalPath ? 1 : 0) + (isAdmin ? 2 : 0)
+    const itemCount = 3 + (downloadUrl ? 1 : 0) + (originalPath ? 1 : 0) + (isAdmin ? 2 : 0)
     const estHeight = itemCount * 40 + 8
     const spaceBelow = window.innerHeight - r.bottom
     if (spaceBelow < estHeight + 12 && r.top > estHeight + 12) {
@@ -105,6 +108,10 @@ export function EpisodeActionsMenu({ onWatchParty, watched, onToggleWatched, dow
           role="menu"
           style={{ top: coords.top, bottom: coords.bottom, right: coords.right }}
         >
+          <Link className={styles.item} to={startFromPath} onClick={close} role="menuitem">
+            <RiRewindStartLine size={16} />
+            <span>Play from beginning</span>
+          </Link>
           <button className={styles.item} onClick={run(onWatchParty)} role="menuitem">
             <RiGroupLine size={16} />
             <span>Start watch party</span>

@@ -9,6 +9,7 @@ import {
   RiSpeakLine,
   RiPictureInPicture2Line,
   RiReplay10Fill, RiForward10Fill,
+  RiRestartLine,
   RiDownloadLine,
 } from 'react-icons/ri'
 import { useMovies } from '../context/MoviesContext'
@@ -63,6 +64,8 @@ export function MovieWatchPage() {
   // ?variant=source plays the original untranscoded file (best effort — the
   // browser may not support its codec/container).
   const isSource = searchParams.get('variant') === 'source'
+  // ?startFrom=0 forces playback from the beginning, skipping saved-progress resume.
+  const startFromBeginning = searchParams.get('startFrom') === '0'
   const { user } = useAuth()
   const { getOne, streamUrl } = useMovies()
   const [movie, setMovie] = useState<Movie | null>(null)
@@ -150,7 +153,7 @@ export function MovieWatchPage() {
 
   // Fetch saved progress and queue a seek once metadata loads
   useEffect(() => {
-    if (!id) return
+    if (!id || startFromBeginning) return
     api.getProgress('movie', id).then(p => {
       if (!p || p.completed) return
       if (p.position > 5 && (p.duration <= 0 || p.position < p.duration - 30)) {
@@ -161,7 +164,7 @@ export function MovieWatchPage() {
         }
       }
     }).catch(() => {})
-  }, [id])
+  }, [id, startFromBeginning])
 
   // Flush final position on unmount
   useEffect(() => {
@@ -296,6 +299,14 @@ export function MovieWatchPage() {
     const v = videoRef.current
     if (!v) return
     v.currentTime = Math.max(0, Math.min(v.duration, v.currentTime + secs))
+  }
+
+  const restart = () => {
+    const v = videoRef.current
+    if (!v || (partyId && !isHost)) return
+    v.currentTime = 0
+    setCurrentTime(0)
+    if (partyId && isHost) sendCommand('seek', 0)
   }
 
   const handleSeekStart = () => setSeeking(true)
@@ -507,6 +518,15 @@ export function MovieWatchPage() {
 
         <div className={styles.buttonRow}>
           <div className={styles.left}>
+            <button
+              className={`btn btn-icon ${styles.controlBtn}`}
+              onClick={restart}
+              aria-label="Restart from beginning"
+              title="Restart from beginning"
+              disabled={!!(partyId && !isHost)}
+            >
+              <RiRestartLine size={20} />
+            </button>
             <button
               className={`btn btn-icon ${styles.controlBtn}`}
               onClick={() => skip(-SKIP_SECONDS)}

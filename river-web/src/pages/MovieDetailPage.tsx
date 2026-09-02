@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
-import { RiArrowLeftLine, RiFilmLine, RiPlayFill, RiStarLine, RiTimeLine, RiDownloadLine, RiUserLine, RiBookmarkLine, RiBookmarkFill, RiGroupLine, RiAlertFill, RiEyeLine, RiEyeOffLine, RiHdLine } from 'react-icons/ri'
+import { RiArrowLeftLine, RiFilmLine, RiPlayFill, RiRestartLine, RiStarLine, RiTimeLine, RiDownloadLine, RiUserLine, RiBookmarkLine, RiBookmarkFill, RiGroupLine, RiAlertFill, RiEyeLine, RiEyeOffLine, RiHdLine } from 'react-icons/ri'
 import { useMovies } from '../context/MoviesContext'
 import { useAuth } from '../context/AuthContext'
 import { imageUrl } from '../util/imageUrl'
@@ -15,6 +15,16 @@ import { DeleteMediaModal } from '../components/DeleteMediaModal'
 import { SimilarCarousel } from '../components/SimilarCarousel'
 import { useBackTo } from '../hooks/useBackTo'
 import styles from './MovieDetailPage.module.css'
+
+// Format a number of seconds as H:MM:SS or M:SS for the "Resume" label.
+function formatResumeTime(seconds: number): string {
+  const s = Math.floor(seconds)
+  const h = Math.floor(s / 3600)
+  const m = Math.floor((s % 3600) / 60)
+  const sec = s % 60
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return h > 0 ? `${h}:${pad(m)}:${pad(sec)}` : `${m}:${pad(sec)}`
+}
 
 async function reTranscodeMovie(id: string) {
   if (!confirm('Re-transcode this movie? This overwrites the existing transcoded file and runs in the background.')) return
@@ -69,6 +79,13 @@ export function MovieDetailPage() {
   }, [id])
 
   const isWatched = progress?.completed ?? false
+
+  // Resumable position, mirroring the watch page's resume rule: not completed,
+  // more than 5s in, and not within the last 30s of the runtime.
+  const resumePosition = progress && !progress.completed && progress.position > 5 &&
+    (progress.duration <= 0 || progress.position < progress.duration - 30)
+    ? progress.position
+    : 0
 
   async function toggleWatched() {
     if (!id || watchedSaving) return
@@ -216,7 +233,7 @@ export function MovieDetailPage() {
                 <div className={styles.mediaActions}>
                   <Link to={`/movie/${id}/watch`} className={`btn btn-primary ${styles.playBtn}`}>
                     <RiPlayFill size={18} />
-                    Play
+                    {resumePosition > 0 ? `Resume · ${formatResumeTime(resumePosition)}` : 'Play'}
                     {!movie.file_path && (
                       <span
                         className={styles.notReadyInline}
@@ -227,6 +244,16 @@ export function MovieDetailPage() {
                       </span>
                     )}
                   </Link>
+                  {resumePosition > 0 && (
+                    <Link
+                      to={`/movie/${id}/watch?startFrom=0`}
+                      className="btn btn-secondary"
+                      title="Play from beginning"
+                    >
+                      <RiRestartLine size={18} />
+                      From start
+                    </Link>
+                  )}
                   <button className="btn btn-icon" onClick={startParty} title="Start Watch Party" aria-label="Start Watch Party">
                     <RiGroupLine size={18} />
                   </button>

@@ -12,6 +12,7 @@ import {
   RiCloseLine,
   RiPictureInPicture2Line,
   RiReplay10Fill, RiForward10Fill,
+  RiRestartLine,
   RiDownloadLine,
 } from 'react-icons/ri'
 import { useTVShows } from '../context/TVShowsContext'
@@ -77,6 +78,8 @@ export function EpisodeWatchPage() {
   const partyId = searchParams.get('party') ?? undefined
   // ?variant=source plays the original untranscoded file (best effort).
   const isSource = searchParams.get('variant') === 'source'
+  // ?startFrom=0 forces playback from the beginning, skipping saved-progress resume.
+  const startFromBeginning = searchParams.get('startFrom') === '0'
   const { user } = useAuth()
   const { fetchEpisodes, fetchSeasons, episodeStreamUrl } = useTVShows()
   const [room, setRoom] = useState<WatchParty | null>(null)
@@ -248,7 +251,7 @@ export function EpisodeWatchPage() {
   }, [activeSubtitleId])
 
   useEffect(() => {
-    if (!episodeId) return
+    if (!episodeId || startFromBeginning) return
     // Skip progress restore when navigating directly from another episode
     if ((location.state as { fromEpisodeNav?: boolean } | null)?.fromEpisodeNav) return
     api.getProgress('episode', episodeId).then(p => {
@@ -400,6 +403,14 @@ export function EpisodeWatchPage() {
     const v = videoRef.current
     if (!v) return
     v.currentTime = Math.max(0, Math.min(v.duration, v.currentTime + secs))
+  }
+
+  const restart = () => {
+    const v = videoRef.current
+    if (!v || (partyId && !isHost)) return
+    v.currentTime = 0
+    setCurrentTime(0)
+    if (partyId && isHost) sendCommand('seek', 0)
   }
 
   const handleSeekStart = () => setSeeking(true)
@@ -660,6 +671,15 @@ export function EpisodeWatchPage() {
 
         <div className={styles.buttonRow}>
           <div className={styles.left}>
+            <button
+              className={`btn btn-icon ${styles.controlBtn}`}
+              onClick={restart}
+              aria-label="Restart from beginning"
+              title="Restart from beginning"
+              disabled={!!(partyId && !isHost)}
+            >
+              <RiRestartLine size={20} />
+            </button>
             <button
               className={`btn btn-icon ${styles.controlBtn}`}
               onClick={handlePrevEpisode}

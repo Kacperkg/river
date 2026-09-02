@@ -304,7 +304,7 @@ export function MovieWatchPage() {
     setCurrentTime(parseFloat(e.target.value))
   }
 
-  const handleSeekEnd = (e: React.MouseEvent<HTMLInputElement>) => {
+  const handleSeekEnd = (e: React.MouseEvent<HTMLInputElement> | React.PointerEvent<HTMLInputElement>) => {
     const v = videoRef.current
     if (!v || (partyId && !isHost)) return
     const newTime = parseFloat((e.target as HTMLInputElement).value)
@@ -499,8 +499,10 @@ export function MovieWatchPage() {
             className={styles.seekBar}
             style={{ '--progress': `${progress * 100}%` } as React.CSSProperties}
             onMouseDown={handleSeekStart}
+            onPointerDown={handleSeekStart}
             onChange={handleSeekChange}
             onMouseUp={handleSeekEnd}
+            onPointerUp={handleSeekEnd}
             disabled={!!(partyId && !isHost)}
           />
         </div>

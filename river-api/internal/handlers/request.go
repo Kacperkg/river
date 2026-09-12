@@ -5,11 +5,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"net/url"
 	"sort"
+	"strconv"
 	"strings"
 
+	"river-api/internal/middleware"
 	"river-api/internal/services"
 
 	"github.com/gin-gonic/gin"
@@ -223,6 +226,9 @@ func (h *RequestHandler) AddMovie(c *gin.Context) {
 		c.JSON(http.StatusBadGateway, gin.H{"error": err.Error()})
 		return
 	}
+	claims := middleware.GetClaims(c)
+	log.Printf("INFO request: user %s (%s) requested movie %q (%d) tmdbId=%d",
+		escapeAuditLogValue(claims.Username), claims.UserID, req.Title, req.Year, req.TmdbID)
 	c.Status(http.StatusNoContent)
 }
 
@@ -291,7 +297,15 @@ func (h *RequestHandler) AddShow(c *gin.Context) {
 		c.JSON(http.StatusBadGateway, gin.H{"error": err.Error()})
 		return
 	}
+	claims := middleware.GetClaims(c)
+	log.Printf("INFO request: user %s (%s) requested show %q (%d) tvdbId=%d",
+		escapeAuditLogValue(claims.Username), claims.UserID, req.Title, req.Year, req.TvdbID)
 	c.Status(http.StatusNoContent)
+}
+
+func escapeAuditLogValue(value string) string {
+	quoted := strconv.QuoteToGraphic(value)
+	return quoted[1 : len(quoted)-1]
 }
 
 // Calendar returns a combined, date-sorted list of upcoming movie releases

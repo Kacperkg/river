@@ -1,10 +1,14 @@
 package handlers
 
 import (
+	"bytes"
+	"log"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
+	"river-api/internal/middleware"
 	"river-api/internal/services"
 
 	"github.com/gin-gonic/gin"
@@ -77,6 +81,10 @@ func TestRequestHandler_Calendar_Unconfigured503(t *testing.T) {
 // fakeArr is a stand-in Radarr/Sonarr answering the endpoints the request
 // handler calls. All responses are application/json (arrGet requires it).
 func fakeArr() *httptest.Server {
+	return fakeArrWithPostStatus(http.StatusCreated)
+}
+
+func fakeArrWithPostStatus(postStatus int) *httptest.Server {
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		switch {
@@ -95,9 +103,9 @@ func fakeArr() *httptest.Server {
 		case r.URL.Path == "/api/v3/calendar":
 			_, _ = w.Write([]byte(`[{"title":"The Matrix","overview":"o","digitalRelease":"2026-01-10T00:00:00Z"}]`))
 		case r.URL.Path == "/api/v3/movie" && r.Method == http.MethodPost:
-			w.WriteHeader(http.StatusCreated)
+			w.WriteHeader(postStatus)
 		case r.URL.Path == "/api/v3/series" && r.Method == http.MethodPost:
-			w.WriteHeader(http.StatusCreated)
+			w.WriteHeader(postStatus)
 		default:
 			w.WriteHeader(http.StatusNotFound)
 		}
@@ -105,6 +113,10 @@ func fakeArr() *httptest.Server {
 }
 
 func fullRequestRouter(arrURL string) *gin.Engine {
+	return fullRequestRouterWithUsername(arrURL, "alice")
+}
+
+func fullRequestRouterWithUsername(arrURL, username string) *gin.Engine {
 	gin.SetMode(gin.TestMode)
 	repo := &fakeSettingRepo{m: map[string]string{
 		"radarr.url": arrURL, "radarr.api_key": "k",
@@ -112,6 +124,10 @@ func fullRequestRouter(arrURL string) *gin.Engine {
 	}}
 	h := NewRequestHandler(services.NewSettingsService(repo))
 	r := gin.New()
+	r.Use(func(c *gin.Context) {
+		c.Set("claims", &middleware.Claims{Username: username, UserID: "user-123"})
+		c.Next()
+	})
 	r.GET("/request/movies", h.SearchMovies)
 	r.POST("/request/movies", h.AddMovie)
 	r.GET("/request/shows", h.SearchShows)
@@ -150,16 +166,82 @@ func TestRequestHandler_AddMovie(t *testing.T) {
 	arr := fakeArr()
 	defer arr.Close()
 	r := fullRequestRouter(arr.URL)
+	logs := captureRequestLogs(t)
 	w := doJSON(r, http.MethodPost, "/request/movies", `{"tmdbId":603,"title":"The Matrix","year":1999}`)
 	assert.Equal(t, http.StatusNoContent, w.Code)
+	const auditEntry = `INFO request: user alice (user-123) requested movie "The Matrix" (1999) tmdbId=603`
+	assert.Equal(t, 1, strings.Count(logs.String(), auditEntry))
+}
+
+func TestRequestHandler_AddMovie_UpstreamErrorDoesNotLog(t *testing.T) {
+	arr := fakeArrWithPostStatus(http.StatusInternalServerError)
+	defer arr.Close()
+	r := fullRequestRouter(arr.URL)
+	logs := captureRequestLogs(t)
+	w := doJSON(r, http.MethodPost, "/request/movies", `{"tmdbId":603,"title":"The Matrix","year":1999}`)
+	assert.Equal(t, http.StatusBadGateway, w.Code)
+	assert.NotContains(t, logs.String(), "INFO request:")
+}
+
+func TestRequestHandler_AddMovie_InvalidInputDoesNotLog(t *testing.T) {
+	arr := fakeArr()
+	defer arr.Close()
+	r := fullRequestRouter(arr.URL)
+	logs := captureRequestLogs(t)
+	w := doJSON(r, http.MethodPost, "/request/movies", `{"title":"The Matrix","year":1999}`)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+	assert.NotContains(t, logs.String(), "INFO request:")
+}
+
+func TestRequestHandler_AddMovie_EscapesControlCharactersInUsername(t *testing.T) {
+	arr := fakeArr()
+	defer arr.Close()
+	r := fullRequestRouterWithUsername(arr.URL, "alice\nINFO request: forged")
+	logs := captureRequestLogs(t)
+	w := doJSON(r, http.MethodPost, "/request/movies", `{"tmdbId":603,"title":"The Matrix","year":1999}`)
+	require.Equal(t, http.StatusNoContent, w.Code)
+	assert.Contains(t, logs.String(), `user alice\nINFO request: forged (user-123)`)
+	assert.NotContains(t, logs.String(), "\nINFO request: forged")
 }
 
 func TestRequestHandler_AddShow(t *testing.T) {
 	arr := fakeArr()
 	defer arr.Close()
 	r := fullRequestRouter(arr.URL)
+	logs := captureRequestLogs(t)
 	w := doJSON(r, http.MethodPost, "/request/shows", `{"tvdbId":78,"title":"Dragnet","year":1951}`)
 	assert.Equal(t, http.StatusNoContent, w.Code)
+	const auditEntry = `INFO request: user alice (user-123) requested show "Dragnet" (1951) tvdbId=78`
+	assert.Equal(t, 1, strings.Count(logs.String(), auditEntry))
+}
+
+func TestRequestHandler_AddShow_UpstreamErrorDoesNotLog(t *testing.T) {
+	arr := fakeArrWithPostStatus(http.StatusInternalServerError)
+	defer arr.Close()
+	r := fullRequestRouter(arr.URL)
+	logs := captureRequestLogs(t)
+	w := doJSON(r, http.MethodPost, "/request/shows", `{"tvdbId":78,"title":"Dragnet","year":1951}`)
+	assert.Equal(t, http.StatusBadGateway, w.Code)
+	assert.NotContains(t, logs.String(), "INFO request:")
+}
+
+func TestRequestHandler_AddShow_InvalidInputDoesNotLog(t *testing.T) {
+	arr := fakeArr()
+	defer arr.Close()
+	r := fullRequestRouter(arr.URL)
+	logs := captureRequestLogs(t)
+	w := doJSON(r, http.MethodPost, "/request/shows", `{"title":"Dragnet","year":1951}`)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+	assert.NotContains(t, logs.String(), "INFO request:")
+}
+
+func captureRequestLogs(t *testing.T) *bytes.Buffer {
+	t.Helper()
+	var logs bytes.Buffer
+	previousWriter := log.Writer()
+	log.SetOutput(&logs)
+	t.Cleanup(func() { log.SetOutput(previousWriter) })
+	return &logs
 }
 
 func TestRequestHandler_Calendar_CombinesSources(t *testing.T) {

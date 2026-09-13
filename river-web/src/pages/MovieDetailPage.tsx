@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
-import { RiArrowLeftLine, RiFilmLine, RiPlayFill, RiRestartLine, RiStarLine, RiTimeLine, RiDownloadLine, RiUserLine, RiBookmarkLine, RiBookmarkFill, RiGroupLine, RiAlertFill, RiEyeLine, RiEyeOffLine, RiHdLine } from 'react-icons/ri'
+import { RiArrowLeftLine, RiFilmLine, RiPlayFill, RiRewindStartLine, RiArrowDownSLine, RiStarLine, RiTimeLine, RiDownloadLine, RiUserLine, RiBookmarkLine, RiBookmarkFill, RiGroupLine, RiAlertFill, RiEyeLine, RiEyeOffLine, RiHdLine } from 'react-icons/ri'
 import { useMovies } from '../context/MoviesContext'
 import { useAuth } from '../context/AuthContext'
 import { imageUrl } from '../util/imageUrl'
@@ -13,6 +13,8 @@ import { IdentifyMovieModal } from '../components/IdentifyMovieModal'
 import { MediaDetailsModal } from '../components/MediaDetailsModal'
 import { DeleteMediaModal } from '../components/DeleteMediaModal'
 import { SimilarCarousel } from '../components/SimilarCarousel'
+import { DropdownMenu } from '../components/DropdownMenu'
+import dropdownStyles from '../components/DropdownMenu.module.css'
 import { useBackTo } from '../hooks/useBackTo'
 import styles from './MovieDetailPage.module.css'
 
@@ -231,29 +233,72 @@ export function MovieDetailPage() {
                   <p className={`body-md ${styles.description}`}>{movie.description}</p>
                 )}
                 <div className={styles.mediaActions}>
-                  <Link to={`/movie/${id}/watch`} className={`btn btn-primary ${styles.playBtn}`}>
-                    <RiPlayFill size={18} />
-                    {resumePosition > 0 ? `Resume · ${formatResumeTime(resumePosition)}` : 'Play'}
-                    {!movie.file_path && (
-                      <span
-                        className={styles.notReadyInline}
-                        title="Not transcoded yet — playing from original source"
-                        aria-label="Not transcoded yet — playing from original source"
-                      >
-                        <RiAlertFill size={16} />
-                      </span>
-                    )}
-                  </Link>
-                  {resumePosition > 0 && (
-                    <Link
-                      to={`/movie/${id}/watch?startFrom=0`}
-                      className="btn btn-secondary"
-                      title="Play from beginning"
-                    >
-                      <RiRestartLine size={18} />
-                      From start
-                    </Link>
-                  )}
+                  {(() => {
+                    const canPlayFromStart = resumePosition > 0
+                    const hasOriginal = !!(movie.file_path && movie.source_path && movie.file_path !== movie.source_path)
+                    const hasMenu = canPlayFromStart || hasOriginal
+                    const playBtn = (
+                      <Link to={`/movie/${id}/watch`} className={`btn btn-primary ${styles.playBtn} ${hasMenu ? styles.playBtnSplit : ''}`}>
+                        <RiPlayFill size={18} />
+                        {resumePosition > 0 ? `Resume · ${formatResumeTime(resumePosition)}` : 'Play'}
+                        {!movie.file_path && (
+                          <span
+                            className={styles.notReadyInline}
+                            title="Not transcoded yet — playing from original source"
+                            aria-label="Not transcoded yet — playing from original source"
+                          >
+                            <RiAlertFill size={16} />
+                          </span>
+                        )}
+                      </Link>
+                    )
+                    // No secondary variants → plain Play button, no dropdown toggle.
+                    if (!hasMenu) return playBtn
+                    return (
+                      <div className={styles.playSplit}>
+                        {playBtn}
+                        <DropdownMenu
+                          menuLabel="Play options"
+                          trigger={({ ref, toggle, open }) => (
+                            <button
+                              ref={ref}
+                              className={`btn btn-primary ${styles.playCaret}`}
+                              onClick={toggle}
+                              aria-label="More play options"
+                              aria-haspopup="menu"
+                              aria-expanded={open}
+                              title="More play options"
+                            >
+                              <RiArrowDownSLine size={18} />
+                            </button>
+                          )}
+                        >
+                          {close => (
+                            <>
+                              {canPlayFromStart && (
+                                <Link className={dropdownStyles.item} to={`/movie/${id}/watch?startFrom=0`} onClick={close} role="menuitem">
+                                  <RiRewindStartLine size={16} />
+                                  <span>Play from beginning</span>
+                                </Link>
+                              )}
+                              {hasOriginal && (
+                                <Link
+                                  className={dropdownStyles.item}
+                                  to={`/movie/${id}/watch?variant=source`}
+                                  onClick={close}
+                                  role="menuitem"
+                                  title="Play or download the original, untranscoded file (may not play in every browser)"
+                                >
+                                  <RiHdLine size={16} />
+                                  <span>Original (untranscoded)</span>
+                                </Link>
+                              )}
+                            </>
+                          )}
+                        </DropdownMenu>
+                      </div>
+                    )
+                  })()}
                   <button className="btn btn-icon" onClick={startParty} title="Start Watch Party" aria-label="Start Watch Party">
                     <RiGroupLine size={18} />
                   </button>
@@ -284,16 +329,6 @@ export function MovieDetailPage() {
                     >
                       <RiDownloadLine size={18} />
                     </a>
-                  )}
-                  {movie.file_path && movie.source_path && movie.file_path !== movie.source_path && (
-                    <Link
-                      to={`/movie/${id}/watch?variant=source`}
-                      className="btn btn-secondary"
-                      title="Play or download the original, untranscoded file (may not play in every browser)"
-                    >
-                      <RiHdLine size={18} />
-                      Original
-                    </Link>
                   )}
                 </div>
                 {credits && (credits.cast.length > 0 || credits.crew.length > 0) && (

@@ -168,6 +168,24 @@
   padding: 12px 28px;
 }
 
+/* Split Play button: the primary Play link and the caret toggle read as one
+   control. The seam between them is a subtle divider; the outer corners stay
+   rounded while the inner corners square off. */
+.playSplit {
+  display: inline-flex;
+  align-items: stretch;
+}
+.playBtnSplit {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+.playCaret {
+  padding: 12px 10px;
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+  border-left: 1px solid rgba(0, 0, 0, 0.2);
+}
+
 .watchlistBtnActive {
   color: var(--color-primary) !important;
 }

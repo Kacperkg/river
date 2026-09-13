@@ -12,13 +12,15 @@ RUN CGO_ENABLED=0 go build -o river-video-trans ./cmd/server
 # Whenever this is bumped, re-verify on the GPU host that a real transcode
 # produces correct frames (no green screen), not just that ffmpeg runs.
 #
-# CAVEAT: BtbN's dated `autobuild-*` tags are ephemeral — old ones get pruned
-# upstream, at which point this URL 404s and the image fails to build (this has
-# already bitten us once). There is no retained release-line URL from BtbN
-# (only `master-latest`), so bumping to a current autobuild tag is a stopgap;
-# the durable fix is to vendor a verified tarball somewhere we control.
-# To bump: pick the newest release-line asset from
-# https://github.com/BtbN/FFmpeg-Builds/releases and update both ARGs.
+# We pull the build from BtbN at image-build time (rather than vendoring a
+# tarball in-repo) — a deliberate tradeoff to keep the repo lean. The cost:
+# BtbN's dated `autobuild-*` tags are ephemeral, so when the pinned tag is
+# eventually pruned upstream this URL 404s and the image fails to build (this
+# has already bitten us once). There is no retained release-line URL from BtbN
+# (only `master-latest`), so expect to re-pin periodically.
+# To re-pin: pick the newest release-line asset from
+# https://github.com/BtbN/FFmpeg-Builds/releases, update both ARGs, and
+# re-verify NVENC output on the GPU host (see green-screen note above).
 FROM alpine:3.21 AS ffmpeg-downloader
 ARG FFMPEG_RELEASE=autobuild-2026-09-13-14-50
 ARG FFMPEG_BUILD=ffmpeg-n9.0.1-29-gad500d59cb-linux64-gpl-9.0

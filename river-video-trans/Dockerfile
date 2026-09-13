@@ -6,13 +6,24 @@ COPY . .
 RUN CGO_ENABLED=0 go build -o river-video-trans ./cmd/server
 
 # BtbN static build includes NVENC + NVDEC (cuvid); Ubuntu's apt ffmpeg does not.
-# Pinned to an immutable release rather than the drifting `latest`/`master-latest`:
+# Pinned to a stable *release-line* build (n9.0.x), NOT `master`/`master-latest`:
 # master builds silently bump the required NVENC SDK and can out-run the host
-# NVIDIA driver (this build needs driver >= 610). To bump, pick a newer tag+asset
-# from https://github.com/BtbN/FFmpeg-Builds/releases and re-verify NVENC on the host.
+# NVIDIA driver, which manifests as transcodes coming out as a green screen.
+# Whenever this is bumped, re-verify on the GPU host that a real transcode
+# produces correct frames (no green screen), not just that ffmpeg runs.
+#
+# We pull the build from BtbN at image-build time (rather than vendoring a
+# tarball in-repo) — a deliberate tradeoff to keep the repo lean. The cost:
+# BtbN's dated `autobuild-*` tags are ephemeral, so when the pinned tag is
+# eventually pruned upstream this URL 404s and the image fails to build (this
+# has already bitten us once). There is no retained release-line URL from BtbN
+# (only `master-latest`), so expect to re-pin periodically.
+# To re-pin: pick the newest release-line asset from
+# https://github.com/BtbN/FFmpeg-Builds/releases, update both ARGs, and
+# re-verify NVENC output on the GPU host (see green-screen note above).
 FROM alpine:3.21 AS ffmpeg-downloader
-ARG FFMPEG_RELEASE=autobuild-2026-08-01-13-21
-ARG FFMPEG_BUILD=ffmpeg-N-125881-g946272b79a-linux64-gpl
+ARG FFMPEG_RELEASE=autobuild-2026-09-13-14-50
+ARG FFMPEG_BUILD=ffmpeg-n9.0.1-29-gad500d59cb-linux64-gpl-9.0
 RUN apk add --no-cache curl xz
 RUN curl -fsSL -o /tmp/ffmpeg.tar.xz \
     https://github.com/BtbN/FFmpeg-Builds/releases/download/${FFMPEG_RELEASE}/${FFMPEG_BUILD}.tar.xz && \

@@ -15,6 +15,7 @@ import {
   RiRestartLine,
   RiDownloadLine,
 } from 'react-icons/ri'
+import { CgStack } from 'react-icons/cg'
 import { useTVShows } from '../context/TVShowsContext'
 import { useAuth } from '../context/AuthContext'
 import { useWatchParty } from '../hooks/useWatchParty'
@@ -24,6 +25,7 @@ import { useAspectRatio, MIN_ZOOM, MAX_ZOOM } from '../hooks/useAspectRatio'
 import { WatchPartyOverlay } from '../components/WatchPartyOverlay'
 import { CastButton } from '../components/CastButton'
 import { AspectRatioMenu } from '../components/AspectRatioMenu'
+import { InPlayerSelector } from '../components/InPlayerSelector'
 import { api } from '../api'
 import type { Subtitle, AudioTrack, WatchParty } from '../api'
 
@@ -508,6 +510,7 @@ export function EpisodeWatchPage() {
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement) return
+      if (e.target instanceof HTMLElement && e.target.closest('#episode-selector-panel')) return
       const canControl = !partyId || isHost
       switch (e.key) {
         case ' ': case 'k': e.preventDefault(); if (canControl) togglePlay(); break
@@ -790,6 +793,26 @@ export function EpisodeWatchPage() {
                 )}
               </div>
             )}
+            <button
+              type="button"
+              className={`btn btn-icon ${styles['in-player-selector-btn']}`}
+              aria-label="Episodes"
+              aria-controls="episode-selector-panel"
+            >
+              <CgStack size={20} className={styles['in-player-selector-icon']} aria-hidden="true" />
+            </button>
+            <InPlayerSelector
+              key={episodeId}
+              showId={showId!}
+              currentSeasonId={seasonId!}
+              currentEpisodeId={episodeId!}
+              onSelect={(targetSeasonId, targetEpisodeId) => {
+                if (targetEpisodeId === episodeId) return
+                navigate(`/show/${showId}/season/${targetSeasonId}/episode/${targetEpisodeId}/watch`, {
+                  state: { fromEpisodeNav: true },
+                })
+              }}
+            />
             <AspectRatioMenu
               open={aspectMenuOpen}
               fitMode={aspect.fitMode}

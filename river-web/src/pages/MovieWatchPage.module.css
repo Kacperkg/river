@@ -162,6 +162,43 @@
   padding-inline: 4px;
 }
 
+.in-player-selector-btn {
+  position: relative;
+  color: #fff;
+  background-color: transparent;
+}
+
+.in-player-selector-btn:hover{
+  background-color: transparent;
+}
+
+.in-player-selector-btn::after {
+  content: "";
+  position: absolute;
+  bottom: 100%;
+  left: 0;
+  width: 100%;
+  height: 20px;
+}
+
+.in-player-selector-btn:hover .in-player-selector-icon,
+.in-player-selector-btn:focus-visible .in-player-selector-icon {
+  scale: 1.2;
+  transition: all ease 200ms;
+}
+
+.controls:has(.in-player-selector-btn:hover, .in-player-selector-btn:focus-visible, [id="episode-selector-panel"]:hover, [id="episode-selector-panel"]:focus-within) {
+  opacity: 1;
+  pointer-events: auto;
+  cursor: default;
+}
+
+@media (max-width: 767px) {
+  .in-player-selector-btn {
+    display: none;
+  }
+}
+
 /* ── Range inputs ─────────────────────────────────────── */
 
 .seekBar {
